@@ -12,3 +12,7 @@ def create_item(db: Session, item: ItemCreate) -> Item:
     return db_item
 
 
+def get_items(db: Session) -> list[Item]:
+    return db.query(Item).all()
+
+
