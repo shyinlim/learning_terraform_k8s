@@ -36,3 +36,12 @@ def update_item(db: Session, item_id: int, item: ItemUpdate) -> Item | None:
     db.refresh(instance=db_item)
     return db_item
 
+def delete_item(db: Session, item_id: int) -> bool:
+    db_item = db.query(Item).filter(Item.id == item_id).first()
+
+    if not db_item:
+        return False
+
+    db.delete(instance=db_item)
+    db.commit()
+    return True
