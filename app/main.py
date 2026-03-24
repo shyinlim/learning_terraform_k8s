@@ -12,3 +12,15 @@ app = FastAPI()
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/items", response_model=ItemResponse)
+def create(item: ItemCreate, db: Session = Depends(get_db)):
+    return create_item(db=db, item=item)
+
+
+@app.get("/items", response_model=list[ItemResponse])
+def read_all(db: Session = Depends(get_db)):
+    return get_item(db=db)
+
+
