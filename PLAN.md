@@ -22,14 +22,14 @@ learning_terraform_k8s/
 │   ├── models.py               # SQLAlchemy models
 │   ├── schemas.py              # Pydantic schemas
 │   ├── database.py             # DB connection config
-│   ├── crud.py                 # CRUD operations
-│   ├── requirements.txt
-│   └── Dockerfile
+│   └── crud.py                 # CRUD operations
+├── deployment/                 # All deployment configs
+│   ├── Dockerfile
+│   └── docker-compose.yaml     # Local dev
 ├── k8s/base/                   # K8s manifests
 ├── terraform/local/            # Terraform (minikube)
 ├── terraform/localstack/       # Terraform (LocalStack, simulated AWS)
-├── terraform/aws/              # Terraform (real AWS)
-└── docker-compose.yaml         # Local dev
+└── terraform/aws/              # Terraform (real AWS)
 ```
 
 ---
@@ -93,7 +93,7 @@ uvicorn main:app --reload
 **Goal**: Package the app into a Docker image
 
 **Checklist**:
-- [ ] `app/Dockerfile` — multi-stage build
+- [ ] `deployment/Dockerfile` — multi-stage build
 - [ ] `.dockerignore`
 - [ ] Verify: `docker build` succeeds
 - [ ] Verify: `docker run` → `curl /health` returns OK
@@ -114,9 +114,9 @@ Stage 2 (runtime): python:3.12-slim → copy packages + code → CMD uvicorn
 
 **Verify**:
 ```bash
-docker build -t fastapi-crud:v1 ./app
-docker run -p 8000:8000 fastapi-crud:v1
-curl http://localhost:8000/health
+docker build -f deployment/Dockerfile -t fastapi-crud:v1 .
+docker run -p 8080:8080 fastapi-crud:v1
+curl http://localhost:8080/health
 ```
 
 **Notes**:
