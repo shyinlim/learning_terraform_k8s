@@ -40,3 +40,13 @@ def update(item_id: int, item: ItemUpdate, db: Session = Depends(get_db)):
     return db_item
 
 
+@app.delete("/items/{item_id}")
+def delete(item_id: int, db: Session = Depends(get_db)):
+    if not delete_item(db=db, item_id=item_id):
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"detail": "Item deleted"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", reload=True, port=3695)
