@@ -115,8 +115,8 @@ Stage 2 (runtime): python:3.12-slim → copy packages + code → CMD uvicorn
 **Verify**:
 ```bash
 docker build -f deployment/Dockerfile -t fastapi-crud:v1 .
-docker run -p 8080:8080 fastapi-crud:v1
-curl http://localhost:8080/health
+docker run -p 3695:3695 fastapi-crud:v1
+curl http://localhost:3695/health
 ```
 
 **Notes**:
