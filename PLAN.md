@@ -2,6 +2,22 @@
 
 > Goal: Build a FastAPI CRUD API + PostgreSQL, progressively learn Docker → K8s → Terraform → AWS
 
+## How to Resume (if coming back after a break)
+
+Run these to rebuild your mental model before touching code:
+
+```bash
+git log --oneline -10                          # what did I last do?
+ls app/ deployment/ deployment/k8s/base/       # what files exist?
+minikube status                                # is the cluster up?
+kubectl get all -n learning                    # anything still running?
+docker images | grep fastapi-crud              # is the image built?
+```
+
+Then open this file and find the first unchecked `[ ]` — that's your next step.
+
+**Current state (as of 2026-04-18):** Phase 1.1 & 1.2 done. Phase 1.3 has `namespace.yaml` only — next is configmap + deployment + service.
+
 ## Tech Stack
 
 | Layer | Tool | Purpose |
@@ -17,20 +33,23 @@
 
 ```
 learning_terraform_k8s/
-├── app/                        # FastAPI application
-│   ├── main.py                 # Entry point
-│   ├── models.py               # SQLAlchemy models
-│   ├── schemas.py              # Pydantic schemas
-│   ├── database.py             # DB connection config
-│   └── crud.py                 # CRUD operations
-├── deployment/                 # All deployment configs
-│   ├── Dockerfile
-│   └── docker-compose.yaml     # Local dev
-├── k8s/base/                   # K8s manifests
-├── terraform/local/            # Terraform (minikube)
-├── terraform/localstack/       # Terraform (LocalStack, simulated AWS)
-└── terraform/aws/              # Terraform (real AWS)
+├── app/                             # FastAPI application
+│   ├── main.py                      # Entry point
+│   ├── models.py                    # SQLAlchemy models
+│   ├── schemas.py                   # Pydantic schemas
+│   ├── database.py                  # DB connection config
+│   └── crud.py                      # CRUD operations
+└── deployment/                      # All deployment configs
+    ├── Dockerfile
+    ├── docker-compose.yaml          # Local dev
+    ├── k8s/base/                    # K8s manifests
+    └── terraform/
+        ├── local/                   # Terraform (minikube)
+        ├── localstack/              # Terraform (LocalStack, simulated AWS)
+        └── aws/                     # Terraform (real AWS)
 ```
+
+> All commands below assume you run from the repo root. Paths like `deployment/k8s/base/...` and `deployment/terraform/local/...` reflect this layout.
 
 ---
 
@@ -130,10 +149,10 @@ curl http://localhost:3695/health
 **Goal**: Run the app in minikube using K8s manifests
 
 **Checklist**:
-- [ ] `k8s/base/namespace.yaml`
-- [ ] `k8s/base/api-configmap.yaml`
-- [ ] `k8s/base/api-deployment.yaml` — with replicas, resource limits, probes
-- [ ] `k8s/base/api-service.yaml` — NodePort
+- [x] `deployment/k8s/base/namespace.yaml`
+- [ ] `deployment/k8s/base/api-configmap.yaml`
+- [ ] `deployment/k8s/base/api-deployment.yaml` — with replicas, resource limits, probes
+- [ ] `deployment/k8s/base/api-service.yaml` — NodePort
 - [ ] Verify: Pods are running (`kubectl get pods -n learning`)
 - [ ] Verify: API is accessible via `minikube service`
 
@@ -159,11 +178,14 @@ curl http://localhost:3695/health
 **Common commands**:
 ```bash
 minikube start
-eval $(minikube docker-env)     # Point docker to minikube's Docker daemon
+eval $(minikube docker-env)     # WHY: minikube runs its own Docker daemon inside the VM.
+                                # Without this, your local `docker build` produces an image that
+                                # minikube's kubelet can't see, and pods fail with ImagePullBackOff.
+                                # This line redirects your shell's docker CLI to the minikube daemon.
 docker build -t fastapi-crud:v1 ./app
 
-kubectl apply -f k8s/base/namespace.yaml
-kubectl apply -f k8s/base/
+kubectl apply -f deployment/k8s/base/namespace.yaml
+kubectl apply -f deployment/k8s/base/
 kubectl get pods -n learning
 kubectl logs -n learning <pod-name>
 minikube service fastapi-crud -n learning   # Open browser to API
@@ -175,16 +197,31 @@ minikube service fastapi-crud -n learning   # Open browser to API
 
 ---
 
-### 1.4 — Terraform for Local K8s
+### 1.4a — Terraform: Namespace + ConfigMap Only
 
-**Goal**: Replace `kubectl apply` with Terraform — experience IaC
+> Start small. Terraform has a steep learning curve (providers, state, plan/apply cycle). Do the two smallest resources first so you can focus on the workflow, not the YAML.
+
+**Goal**: Get comfortable with `terraform init / plan / apply / destroy` on trivial resources
 
 **Checklist**:
-- [ ] `terraform/local/variables.tf` — kube_context, namespace, app_image, replicas, node_port, database_url
-- [ ] `terraform/local/main.tf` — kubernetes provider + namespace + configmap + deployment + service
-- [ ] `terraform/local/outputs.tf` — namespace, node_port, app_url
+- [ ] `deployment/terraform/local/variables.tf` — kube_context, namespace, database_url
+- [ ] `deployment/terraform/local/main.tf` — kubernetes provider + namespace + configmap (only)
+- [ ] `deployment/terraform/local/outputs.tf` — namespace
 - [ ] Verify: `terraform init` succeeds
-- [ ] Verify: `terraform plan` shows expected resources
+- [ ] Verify: `terraform plan` shows 2 resources to add
+- [ ] Verify: `terraform apply` creates namespace + configmap
+- [ ] Verify: `terraform destroy` removes them cleanly
+
+---
+
+### 1.4b — Terraform: Add Deployment + Service
+
+**Goal**: Extend the Terraform config to cover the full app deployment
+
+**Checklist**:
+- [ ] Extend `main.tf` — add `kubernetes_deployment` + `kubernetes_service`
+- [ ] Extend `variables.tf` — app_image, replicas, node_port
+- [ ] Extend `outputs.tf` — node_port, app_url
 - [ ] Verify: `terraform apply` creates everything in minikube
 - [ ] Verify: `terraform destroy` cleans up
 
@@ -201,7 +238,7 @@ minikube service fastapi-crud -n learning   # Open browser to API
 
 **Terraform workflow**:
 ```bash
-cd terraform/local
+cd deployment/terraform/local
 terraform init      # Download providers
 terraform plan      # Preview what will happen
 terraform apply     # Execute changes
@@ -226,17 +263,38 @@ resource "kubernetes_service" — create service
 
 ## Phase 2: PostgreSQL (Stateful Workload)
 
-### 2.1 — PostgreSQL in K8s
+### 2.1 — Update App to Use Environment Variables
+
+> Do this FIRST, before deploying Postgres. Otherwise the K8s DB has no client that knows how to connect to it.
+
+**Goal**: Read DATABASE_URL from env vars, don't hardcode it
+
+**Checklist**:
+- [ ] `app/database.py` — use `os.getenv("DATABASE_URL", "sqlite:///./items.db")`
+- [ ] `app/requirements.txt` — add `psycopg2-binary`
+- [ ] Verify: App still works locally with SQLite (default fallback)
+
+**Key concept**: 12-Factor App, Factor III — Store config in environment variables
+
+**Notes**:
+<!-- What I learned, what I got stuck on -->
+
+
+---
+
+### 2.2 — PostgreSQL in K8s
 
 **Goal**: Run PostgreSQL in K8s, learn stateful workloads
 
 **Checklist**:
-- [ ] `k8s/base/pg-secret.yaml` — POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
-- [ ] `k8s/base/pg-pvc.yaml` — 1Gi ReadWriteOnce
-- [ ] `k8s/base/pg-statefulset.yaml` — postgres:16-alpine, mount PVC, readiness probe
-- [ ] `k8s/base/pg-service.yaml` — ClusterIP on port 5432
+- [ ] `deployment/k8s/base/pg-secret.yaml` — POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+- [ ] `deployment/k8s/base/pg-pvc.yaml` — 1Gi ReadWriteOnce
+- [ ] `deployment/k8s/base/pg-statefulset.yaml` — postgres:16-alpine, mount PVC, readiness probe
+- [ ] `deployment/k8s/base/pg-service.yaml` — ClusterIP on port 5432
+- [ ] Update `api-configmap.yaml` — DATABASE_URL points to `postgres.learning.svc.cluster.local:5432`
 - [ ] Verify: `kubectl get statefulset -n learning` shows postgres
 - [ ] Verify: `kubectl get pvc -n learning` shows Bound
+- [ ] Verify: API pod connects to Postgres (check logs)
 
 **Key Concepts**:
 
@@ -249,25 +307,6 @@ resource "kubernetes_service" — create service
 
 **Think about it**: Why use StatefulSet instead of Deployment for a database?
 > Hint: What happens to the Pod name after deletion and recreation? Is the volume still there?
-
-**Notes**:
-<!-- What I learned, what I got stuck on -->
-
-
----
-
-### 2.2 — Update App to Use Environment Variables
-
-**Goal**: Read DATABASE_URL from env vars, don't hardcode it
-
-**Checklist**:
-- [ ] `app/database.py` — use `os.getenv("DATABASE_URL", "sqlite:///./items.db")`
-- [ ] `app/requirements.txt` — add `psycopg2-binary`
-- [ ] Update `k8s/base/api-configmap.yaml` — change to PostgreSQL connection string
-- [ ] Verify: App still works locally with SQLite (default fallback)
-- [ ] Verify: App connects to PostgreSQL in K8s
-
-**Key concept**: 12-Factor App, Factor III — Store config in environment variables
 
 **Notes**:
 <!-- What I learned, what I got stuck on -->
@@ -336,8 +375,8 @@ kubectl delete pod postgres-0 -n learning
 
 **Checklist**:
 - [ ] Start LocalStack container
-- [ ] `terraform/localstack/main.tf` — AWS provider pointing to localhost:4566
-- [ ] `terraform/localstack/variables.tf`
+- [ ] `deployment/terraform/localstack/main.tf` — AWS provider pointing to localhost:4566
+- [ ] `deployment/terraform/localstack/variables.tf`
 - [ ] Verify: `terraform init` succeeds with LocalStack endpoint
 
 **Key Concepts**:
@@ -385,7 +424,7 @@ docker run -d -p 4566:4566 localstack/localstack
 
 **Verify**:
 ```bash
-cd terraform/localstack && terraform init && terraform apply
+cd deployment/terraform/localstack && terraform init && terraform apply
 aws --endpoint-url=http://localhost:4566 s3 ls
 aws --endpoint-url=http://localhost:4566 ec2 describe-vpcs
 ```
@@ -441,12 +480,12 @@ aws --endpoint-url=http://localhost:4566 ec2 describe-vpcs
 **Goal**: Create reusable Terraform modules for AWS infrastructure
 
 **Checklist**:
-- [ ] `terraform/aws/modules/vpc/` — VPC + subnets + IGW
-- [ ] `terraform/aws/modules/ec2/` — EC2 t3.micro instance
-- [ ] `terraform/aws/modules/k3s/` — k3s installation on EC2
-- [ ] `terraform/aws/main.tf` — compose modules together
-- [ ] `terraform/aws/variables.tf`
-- [ ] `terraform/aws/outputs.tf` — EC2 public IP
+- [ ] `deployment/terraform/aws/modules/vpc/` — VPC + subnets + IGW
+- [ ] `deployment/terraform/aws/modules/ec2/` — EC2 t3.micro instance
+- [ ] `deployment/terraform/aws/modules/k3s/` — k3s installation on EC2
+- [ ] `deployment/terraform/aws/main.tf` — compose modules together
+- [ ] `deployment/terraform/aws/variables.tf`
+- [ ] `deployment/terraform/aws/outputs.tf` — EC2 public IP
 - [ ] Verify: `terraform plan` shows all resources
 
 **Key Concepts**:
@@ -486,7 +525,7 @@ aws --endpoint-url=http://localhost:4566 ec2 describe-vpcs
 - [ ] Double-check: No unexpected charges
 
 ```bash
-cd terraform/aws && terraform destroy -auto-approve
+cd deployment/terraform/aws && terraform destroy -auto-approve
 ```
 
 ---
