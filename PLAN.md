@@ -60,14 +60,14 @@ learning_terraform_k8s/
 **Goal**: Build an Items CRUD API using SQLite (zero setup)
 
 **Checklist**:
-- [ ] `app/requirements.txt`
-- [ ] `app/database.py` — engine, SessionLocal, Base, `get_db()` generator
-- [ ] `app/models.py` — Item table (id, name, description, created_at, updated_at)
-- [ ] `app/schemas.py` — ItemCreate, ItemUpdate, ItemResponse
-- [ ] `app/crud.py` — create_item, get_items, get_item, update_item, delete_item
-- [ ] `app/main.py` — FastAPI app with 6 endpoints
-- [ ] Verify: `uvicorn main:app --reload` → Swagger UI works at `/docs`
-- [ ] Verify: All CRUD operations work (create, read, update, delete)
+- [x] `app/requirements.txt`
+- [x] `app/database.py` — engine, SessionLocal, Base, `get_db()` generator
+- [x] `app/models.py` — Item table (id, name, description, created_at, updated_at)
+- [x] `app/schemas.py` — ItemCreate, ItemUpdate, ItemResponse
+- [x] `app/crud.py` — create_item, get_items, get_item, update_item, delete_item
+- [x] `app/main.py` — FastAPI app with 6 endpoints
+- [x] Verify: `uvicorn main:app --reload` → Swagger UI works at `/docs`
+- [x] Verify: All CRUD operations work (create, read, update, delete)
 
 **Endpoints to implement**:
 - `GET /health` — health check
