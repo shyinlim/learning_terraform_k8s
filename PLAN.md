@@ -112,10 +112,10 @@ uvicorn main:app --reload
 **Goal**: Package the app into a Docker image
 
 **Checklist**:
-- [ ] `deployment/Dockerfile` — multi-stage build
-- [ ] `.dockerignore`
-- [ ] Verify: `docker build` succeeds
-- [ ] Verify: `docker run` → `curl /health` returns OK
+- [x] `deployment/Dockerfile` — multi-stage build
+- [x] `.dockerignore`
+- [x] Verify: `docker build` succeeds
+- [x] Verify: `docker run` → `curl /health` returns OK
 
 **Key Concepts**:
 
