@@ -37,8 +37,10 @@
 你需要先有：
 
 - **macOS**（這份筆記用 macOS 示範）
-- **Docker Desktop** — [下載](https://www.docker.com/products/docker-desktop/)
-  - 裝完打開它，等鯨魚 🐳 圖示在選單列出現且穩定
+- **Docker 環境**（擇一，提供 `docker` CLI 和 daemon）：
+  - **OrbStack**（推薦，輕量快速）— [下載](https://orbstack.dev/)
+  - 或 **Docker Desktop** — [下載](https://www.docker.com/products/docker-desktop/)
+  - 裝完打開它，確認選單列圖示穩定後
   - 驗證：terminal 跑 `docker ps`，不報錯就 OK
 - **Homebrew** — macOS 的套件管理器
   - 驗證：`brew --version`，沒有的話去 [brew.sh](https://brew.sh) 裝
