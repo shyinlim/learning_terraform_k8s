@@ -1,0 +1,9 @@
+# ConfigMap 就是「把非敏感的設定抽出來」的物件，讓你的 image 不用 rebuild 就能換設定。Pod 可以用兩種方式吃它：
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: learning
+data:
+    APP_ENV: "local"
+    LOG_LEVEL: "info"
