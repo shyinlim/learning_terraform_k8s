@@ -96,6 +96,53 @@ minikube delete    # 整組砍掉重練
 
 ---
 
+## 核心概念速查（動手前先讀）
+
+### Docker vs K8s
+
+| | Docker | Kubernetes |
+|---|---|---|
+| 管什麼 | 單一容器 | 一群容器 |
+| 誰重啟掛掉的 | 你自己 | K8s 自動 |
+| 要跑 5 個 replica | `docker run` x5 | `replicas: 5` 一行 |
+| 多容器互相溝通 | 自己管 IP | Service + DNS |
+| 滾動升級 | 手動 | 內建 |
+
+K8s **不取代** Docker — 它底層還是用 Docker 跑容器，只是在上面蓋了一層管理。
+
+### K8s 的三層抽象（由下到上）
+
+```
+Container  ← Docker 層級的跑 process
+    ↑
+   Pod      ← K8s 最小單位，1~N 個 container 共享網路和儲存
+    ↑
+ReplicaSet ← 確保「永遠有 N 個一樣的 Pod 在跑」
+    ↑
+Deployment ← 管 ReplicaSet，處理 rolling update / rollback
+```
+
+**你日常只寫 Deployment，不直接寫 Pod 和 ReplicaSet。** 它們是 Deployment 自動建出來的。
+
+### Service 為什麼需要
+
+Pod 會死會重生、IP 會變。Service 提供一個**穩定的虛擬 IP + DNS 名字**，自動把流量分給符合 label 的 Pod 們。
+
+```
+Client → Service (穩定) → Pod1 / Pod2 / Pod3 (IP 亂變沒差)
+```
+
+### minikube 內部的「兩個 Docker」
+
+minikube 跑在你 Mac 的 Docker 裡，但它**內部又有一個自己的 Docker daemon**。所以：
+
+- 你 Mac terminal 的 `docker build` → image 跑在 Mac daemon，minikube **看不到**
+- 要讓 minikube 看到 → 先執行 `eval $(minikube docker-env)` 切到 minikube 的 daemon，再 build
+
+這是部署到 minikube 時最常見的坑（Pod 會卡 `ErrImageNeverPull`）。
+
+---
+
 ## Phase 1：FastAPI + Docker
 
 > 👉 TODO：補上 app/ 結構說明、Dockerfile 邏輯、build 指令。等目前主線推進到哪就回頭補。
@@ -104,7 +151,34 @@ minikube delete    # 整組砍掉重練
 
 ## Phase 1.3：部署到 minikube（進行中）
 
-> 👉 TODO：ConfigMap / Deployment / Service yaml 寫完後補這段。
+### 3.1 ConfigMap — 把設定抽出來
+
+**為什麼要 ConfigMap？** 如果 `APP_ENV=local` 寫死在 image 裡，換環境就要 rebuild。ConfigMap 讓你「改設定不用動 image」。
+
+**檔案**：[`deployment/k8s/base/api-configmap.yaml`](./deployment/k8s/base/api-configmap.yaml)
+
+**幾個重點**：
+
+- `data:` 底下的值**一定要是 string** — 習慣全部加引號，不然 `true` / 數字會被 YAML 解成 boolean / int，apply 失敗
+- Pod 怎麼讀？用 `envFrom.configMapRef`，整包 key-value 變成環境變數
+- ConfigMap 改了之後，用 `envFrom` 注入的環境變數**不會自動更新** — 要 `kubectl rollout restart deployment/xxx`
+
+**部署並驗證**：
+
+```bash
+kubectl apply -f deployment/k8s/base/namespace.yaml
+kubectl apply -f deployment/k8s/base/api-configmap.yaml
+kubectl get configmap -n learning
+kubectl describe configmap api-config -n learning
+```
+
+### 3.2 Deployment — 跑 app
+
+> 👉 TODO：寫完 api-deployment.yaml 補這段。
+
+### 3.3 Service — 對外暴露
+
+> 👉 TODO：寫完 api-service.yaml 補這段。
 
 ---
 

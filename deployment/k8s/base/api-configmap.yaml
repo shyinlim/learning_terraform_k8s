@@ -5,5 +5,5 @@ metadata:
   name: api-config
   namespace: learning
 data:
-    APP_ENV: "local"
-    LOG_LEVEL: "info"
+  APP_ENV: "local"
+  LOG_LEVEL: "info"
