@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: fastapi-crud
+    namespace: learning
+spec:
+  replicas: 2                          # how many pods to run
+  selector:
+    matchLabels:
+      app: fastapi-crud                # must match template.metadata.labels below
+  template:                            # pod template
+    metadata:
+      labels:
+        app: fastapi-crud              # used by selector + service
+    spec:
+      containers:
+        - name: api
+          image: fastapi-crud:v1
+          imagePullPolicy: Never       # use local image, do not pull from registry
+          ports:
+            - containerPort: 3695      # must match uvicorn --port in Dockerfile CMD
+          envFrom:
+            - configMapRef:
+                name: api-config       # inject all keys as env vars
