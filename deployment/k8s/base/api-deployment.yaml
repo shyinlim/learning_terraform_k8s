@@ -22,3 +22,22 @@ spec:
           envFrom:
             - configMapRef:
                 name: api-config       # inject all keys as env vars
+          resources:
+            requests: # guaranteed minimum
+              cpu: "50m"
+              memory: "64Mi"
+            limits: # hard ceiling, killed if exceeded (memory)
+              cpu: "200m"
+              memory: "128Mi"
+          readinessProbe: # is the pod ready to receive traffic?
+            httpGet:
+              path: /health
+              port: 3695
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe: # is the pod still alive? restart if not
+            httpGet:
+              path: /health
+              port: 3695
+            initialDelaySeconds: 10
+            periodSeconds: 10
