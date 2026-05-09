@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-    name: fastapi-crud
-    namespace: learning
+  name: fastapi-crud
+  namespace: learning
 spec:
   replicas: 2                          # how many pods to run
   selector:
